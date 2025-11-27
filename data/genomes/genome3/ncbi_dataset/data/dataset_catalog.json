@@ -1,0 +1,26 @@
+{
+"apiVersion": "V2",
+"assemblies": [
+{
+  "files": [
+    {
+      "filePath": "data_summary.tsv",
+      "fileType": "DATA_TABLE",
+      "uncompressedLengthBytes": "411"
+    },
+    {
+      "filePath": "assembly_data_report.jsonl",
+      "fileType": "DATA_REPORT",
+      "uncompressedLengthBytes": "5929"
+    }
+  ]
+},{
+  "accession": "GCA_000008865.2",
+  "files": [
+    {
+      "filePath": "GCA_000008865.2/genomic.gbff",
+      "fileType": "GENBANK_FLAT_FILE",
+      "uncompressedLengthBytes": "11646066"
+    }
+  ]
+}]}
