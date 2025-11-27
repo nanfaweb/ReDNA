@@ -1,4 +1,0 @@
-22058877fcde5a3f060a755090317495  ncbi_dataset/data/data_summary.tsv
-9af1ae9c8cc1a65afbf39972d180a928  ncbi_dataset/data/assembly_data_report.jsonl
-1dd79a0365046c51704d215c4e40a875  ncbi_dataset/data/GCA_000008865.2/genomic.gbff
-23d636465972c192a2d66c106a19c461  ncbi_dataset/data/dataset_catalog.json
