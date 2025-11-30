@@ -6,9 +6,9 @@ df = pd.read_csv("dataset.csv")
 train, temp = train_test_split(df, test_size=0.35, stratify=df["label"], random_state=42)
 val, test = train_test_split(temp, test_size=0.50, stratify=temp["label"], random_state=42)
 
-train.to_csv("train.csv", index=False)
-val.to_csv("val.csv", index=False)
-test.to_csv("test.csv", index=False)
+train.to_csv(r"main/test/train.csv", index=False)
+val.to_csv(r"main/test/val.csv", index=False)
+test.to_csv(r"main/test/test.csv", index=False)
 
 print("Train:", len(train))
 print("Val:", len(val))
