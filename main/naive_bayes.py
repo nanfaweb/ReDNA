@@ -1,6 +1,11 @@
 import pandas as pd
 import numpy as np
-from test import test_metrics as tm
+import sys
+import os
+sys.path.append(os.path.join(os.path.dirname(__file__), 'test'))
+import test_metrics as tm
+import matplotlib.pyplot as plt
+from sklearn.metrics import accuracy_score, log_loss
 
 np.set_printoptions(legacy='1.25')
 
@@ -60,9 +65,10 @@ class NaiveBayes:
 		return prob_list
 	
 # Load data
-train = pd.read_csv(r'test/train.csv')
-val   = pd.read_csv(r'test/val.csv')
-test  = pd.read_csv(r'test/test.csv')
+base_path = os.path.dirname(__file__)
+train = pd.read_csv(os.path.join(base_path, 'test', 'train.csv'))
+val   = pd.read_csv(os.path.join(base_path, 'test', 'val.csv'))
+test  = pd.read_csv(os.path.join(base_path, 'test', 'test.csv'))
 
 n = 6
 train['ngrams'] = train['sequence'].apply(lambda x: generate_ngrams(x, n))
@@ -83,6 +89,79 @@ X_test  = np.array([vectorize(seq, vocab_index) for seq in test['ngrams']])
 y_train = train['label'].values
 y_val   = val['label'].values
 y_test  = test['label'].values
+
+# --- Graph Generation ---
+print("Generating learning curves...")
+train_sizes = np.linspace(0.1, 1.0, 5) # 5 points
+train_losses = []
+val_losses = []
+train_accs = []
+val_accs = []
+
+def prob_list_to_array(plist, classes):
+    arr = np.zeros((len(plist), len(classes)))
+    for i, p in enumerate(plist):
+        for j, c in enumerate(classes):
+            arr[i, j] = p.get(c, 0.0)
+    return arr
+
+for frac in train_sizes:
+    # Subset
+    limit = int(len(X_train) * frac)
+    X_sub = X_train[:limit]
+    y_sub = y_train[:limit]
+    
+    # Fit
+    nb = NaiveBayes(alpha=1.0)
+    nb.fit(X_sub, y_sub)
+    
+    # Predict
+    y_train_pred_sub = nb.predict(X_sub)
+    y_train_prob_list = nb.predict_prob(X_sub)
+    
+    y_val_pred_sub = nb.predict(X_val)
+    y_val_prob_list = nb.predict_prob(X_val)
+    
+    y_train_prob_arr = prob_list_to_array(y_train_prob_list, nb.classes)
+    y_val_prob_arr = prob_list_to_array(y_val_prob_list, nb.classes)
+    
+    # Metrics
+    train_acc = accuracy_score(y_sub, y_train_pred_sub)
+    val_acc = accuracy_score(y_val, y_val_pred_sub)
+    
+    train_loss = log_loss(y_sub, y_train_prob_arr, labels=nb.classes)
+    val_loss = log_loss(y_val, y_val_prob_arr, labels=nb.classes)
+    
+    train_accs.append(train_acc)
+    val_accs.append(val_acc)
+    train_losses.append(train_loss)
+    val_losses.append(val_loss)
+    
+    print(f"Frac {frac:.1f}: Train Acc {train_acc:.3f}, Val Acc {val_acc:.3f}")
+
+# Plotting
+plt.figure(figsize=(12, 5))
+
+# Loss
+plt.subplot(1, 2, 1)
+plt.plot(train_sizes, train_losses, 'o-', label='Train Loss')
+plt.plot(train_sizes, val_losses, 'o-', label='Val Loss')
+plt.xlabel('Fraction of Training Data')
+plt.ylabel('Log Loss')
+plt.title('Learning Curve - Loss')
+plt.legend()
+
+# Accuracy
+plt.subplot(1, 2, 2)
+plt.plot(train_sizes, train_accs, 'o-', label='Train Accuracy')
+plt.plot(train_sizes, val_accs, 'o-', label='Val Accuracy')
+plt.xlabel('Fraction of Training Data')
+plt.ylabel('Accuracy')
+plt.title('Learning Curve - Accuracy')
+plt.legend()
+
+plt.savefig('naive_bayes_training_results.png')
+print("Graphs saved to naive_bayes_training_results.png")
 
 # Fit model (using your vectorized X_train/X_test)
 model = NaiveBayes(alpha=1.0)

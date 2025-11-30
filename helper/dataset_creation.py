@@ -16,7 +16,7 @@ random.seed(42)
 # ==========================================================
 # CONFIG
 # ==========================================================
-GENOMES_DIR = "raw data/genomes/"          # Folder containing .gbff/.gbk files
+GENOMES_DIR = "rawdata/genomes/"          # Folder containing .gbff/.gbk files
 SEQ_LEN = 300                          # Fixed window length
 SAMPLES_PER_CLASS = 15000              # Per class
 CLASSES = ["promoter", "cds", "terminator", "intergenic"]
