@@ -2,6 +2,10 @@ import numpy as np
 import pandas as pd
 import os
 import matplotlib.pyplot as plt
+import pickle
+import sys
+sys.path.append(os.path.join(os.path.dirname(__file__), 'test'))
+import test_metrics as tm
 from sklearn.metrics import accuracy_score, log_loss
 
 def generate_ngrams(sequence, n=6):
@@ -19,7 +23,7 @@ def build_vocab(sequences, n=6):
     for seq in sequences:
         for ng in generate_ngrams(seq, n):
             vocab.add(ng)
-    vocab = list(vocab)
+    vocab = sorted(list(vocab))
     vocab_index = {ng: i for i, ng in enumerate(vocab)}
     return vocab_index
 
@@ -164,8 +168,22 @@ print("Graphs saved to svm_training_results.png")
 
 # Final model training
 print("\nTraining final model on full training set...")
-model = MultiClassSVM(lr=0.001, C=5.0, epochs=2000)
-model.fit(X_train, y_train)
+model_path = 'svm_model.pkl'
+
+if os.path.exists(model_path):
+    print(f"Loading existing model from {model_path}...")
+    with open(model_path, 'rb') as f:
+        model = pickle.load(f)
+    print("Model loaded. Skipping training.")
+else:
+    print("No existing model found. Training new model...")
+    model = MultiClassSVM(lr=0.001, C=5.0, epochs=2000)
+    model.fit(X_train, y_train)
+    
+    # Save the model
+    with open(model_path, 'wb') as f:
+        pickle.dump(model, f)
+    print(f"Model saved to {model_path}")
 
 y = y_test
 y_pred = model.predict(X_test)
@@ -173,3 +191,16 @@ y_prob = model.predict_proba(X_test)
 
 accuracy = np.mean(y_pred == y)
 print(f"\nTest Accuracy: {accuracy}")
+
+# Convert probabilities to list of dicts for test_metrics
+y_prob_list = []
+classes = model.classes
+for prob_array in y_prob:
+    prob_dict = {
+        classes[i]: float(prob_array[i]) 
+        for i in range(len(prob_array))
+    }
+    y_prob_list.append(prob_dict)
+
+# Compute comprehensive metrics
+tm.compute_metrics(y, y_pred, y_prob_list)

@@ -22,7 +22,7 @@ SEQ_LENGTH = 300
 EMBEDDING_DIM = 16
 HIDDEN_SIZE = 64
 NUM_CLASSES = 4
-DATASET_PATH = 'dataset.csv' # Assuming script is run from project root
+# DATASET_PATH = 'dataset.csv' # Removed
 MODEL_SAVE_PATH = 'rnn_model_weights.pth'
 PLOT_SAVE_PATH = 'training_results.png'
 
@@ -45,18 +45,37 @@ class DNADataset(Dataset):
         label = torch.tensor(self.labels[idx], dtype=torch.long)
         return token_seq, label
 
-def load_and_process_data(filepath):
-    print("Loading dataset...")
-    df = pd.read_csv(filepath)
+def process_dataframe(df):
+    print("Processing dataframe...")
     
-    # Map labels to integers
-    label_map = {
-        'promoter': 0,
-        'cds': 1,
-        'terminator': 2,
-        'intergenic': 3
-    }
-    df['label_idx'] = df['label'].map(label_map)
+    # Map labels to integers if not already mapped
+    # Check if label is string or int
+    if df['label'].dtype == object:
+        label_map = {
+            'promoter': 0,
+            'cds': 1,
+            'terminator': 2,
+            'intergenic': 3
+        }
+        # Filter out invalid labels if any
+        df = df[df['label'].isin(label_map.keys())].copy()
+        df['label_idx'] = df['label'].map(label_map)
+    else:
+        # Assume already int or mapped? 
+        # But looking at bi_lstm.py, labels are strings.
+        # Let's assume they are strings as per bi_lstm.py
+        pass
+
+    # If label_idx doesn't exist, create it (double check)
+    if 'label_idx' not in df.columns:
+         label_map = {
+            'promoter': 0,
+            'cds': 1,
+            'terminator': 2,
+            'intergenic': 3
+        }
+         df = df[df['label'].isin(label_map.keys())].copy()
+         df['label_idx'] = df['label'].map(label_map)
     
     # Convert 'tokens' from string to list of ints
     print("Parsing tokens...")
@@ -68,12 +87,6 @@ def load_and_process_data(filepath):
         if len(tokens) >= SEQ_LENGTH:
             return tokens[:SEQ_LENGTH]
         else:
-            # Pad with 0? Or maybe 4 (if 0-3 are bases)? 
-            # Prompt says "tokens (list of integers representing each nucleotide, e.g. [0,1,3,2,...])"
-            # Usually 0-3 are A,C,G,T. Let's assume 0 padding is okay or handled by embedding.
-            # However, if 0 is a valid token, padding with it might be ambiguous without a mask.
-            # Given the prompt doesn't specify padding token, and usually these are fixed length 300,
-            # we will just pad with 0.
             return tokens + [0] * (SEQ_LENGTH - len(tokens))
 
     df['tokens'] = df['tokens'].apply(pad_or_truncate)
@@ -110,16 +123,18 @@ class RNNClassifier(nn.Module):
 # --- Training and Evaluation ---
 def train_model():
     # 1. Load Data
-    if not os.path.exists(DATASET_PATH):
-        print(f"Error: Dataset not found at {DATASET_PATH}")
+    print("Loading data from test/ directory...")
+    try:
+        train_df = pd.read_csv(os.path.join('test', 'train.csv'))
+        val_df = pd.read_csv(os.path.join('test', 'val.csv'))
+        test_df = pd.read_csv(os.path.join('test', 'test.csv'))
+    except FileNotFoundError:
+        print("Error: Could not find train/val/test CSV files in 'test' directory.")
         return
 
-    df = load_and_process_data(DATASET_PATH)
-    
-    # 2. Split Data
-    # 80% train, 10% val, 10% test
-    train_df, temp_df = train_test_split(df, test_size=0.2, random_state=42, stratify=df['label_idx'])
-    val_df, test_df = train_test_split(temp_df, test_size=0.5, random_state=42, stratify=temp_df['label_idx'])
+    train_df = process_dataframe(train_df)
+    val_df = process_dataframe(val_df)
+    test_df = process_dataframe(test_df)
     
     print(f"Train size: {len(train_df)}, Val size: {len(val_df)}, Test size: {len(test_df)}")
     
@@ -143,6 +158,14 @@ def train_model():
     
     criterion = nn.CrossEntropyLoss()
     optimizer = optim.Adam(model.parameters(), lr=LEARNING_RATE)
+
+    # Load existing weights if available
+    if os.path.exists(MODEL_SAVE_PATH):
+        print(f"Loading existing model weights from {MODEL_SAVE_PATH}...")
+        model.load_state_dict(torch.load(MODEL_SAVE_PATH))
+        print("Model weights loaded. Continuing training...")
+    else:
+        print("No existing weights found. Starting training from scratch...")
     
     # 4. Training Loop
     train_losses = []

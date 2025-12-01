@@ -6,6 +6,8 @@ sys.path.append(os.path.join(os.path.dirname(__file__), 'test'))
 import test_metrics as tm
 import matplotlib.pyplot as plt
 from sklearn.metrics import accuracy_score, log_loss
+import pickle
+import os
 
 np.set_printoptions(legacy='1.25')
 
@@ -79,7 +81,7 @@ test['ngrams']  = test['sequence'].apply(lambda x: generate_ngrams(x, n))
 vocab = set()
 for seq in train['ngrams']:
 	vocab.update(seq)
-vocab = list(vocab)
+vocab = sorted(list(vocab))
 vocab_index = {k:i for i,k in enumerate(vocab)}
 
 X_train = np.array([vectorize(seq, vocab_index) for seq in train['ngrams']])
@@ -164,8 +166,22 @@ plt.savefig('naive_bayes_training_results.png')
 print("Graphs saved to naive_bayes_training_results.png")
 
 # Fit model (using your vectorized X_train/X_test)
-model = NaiveBayes(alpha=1.0)
-model.fit(X_train, y_train)
+model_path = 'naive_bayes_model.pkl'
+
+if os.path.exists(model_path):
+    print(f"Loading existing model from {model_path}...")
+    with open(model_path, 'rb') as f:
+        model = pickle.load(f)
+    print("Model loaded. Skipping training.")
+else:
+    print("No existing model found. Training new model...")
+    model = NaiveBayes(alpha=1.0)
+    model.fit(X_train, y_train)
+    
+    # Save the model
+    with open(model_path, 'wb') as f:
+        pickle.dump(model, f)
+    print(f"Model saved to {model_path}")
 
 # Predictions
 y_val_pred = model.predict(X_val)
