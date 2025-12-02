@@ -17,14 +17,14 @@ import test_metrics as tm
 # --- Configuration ---
 BATCH_SIZE = 64
 LEARNING_RATE = 0.001
-EPOCHS = 20
+EPOCHS = 100
 SEQ_LENGTH = 300
 EMBEDDING_DIM = 16
 HIDDEN_SIZE = 64
 NUM_CLASSES = 4
 # DATASET_PATH = 'dataset.csv' # Removed
-MODEL_SAVE_PATH = 'rnn_model_weights.pth'
-PLOT_SAVE_PATH = 'training_results.png'
+MODEL_SAVE_PATH = os.path.join(os.path.dirname(__file__), 'rnn_weights.pth')
+PLOT_SAVE_PATH = os.path.join(os.path.dirname(__file__), 'rnn_graph.png')
 
 # Check for GPU
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
@@ -125,11 +125,12 @@ def train_model():
     # 1. Load Data
     print("Loading data from test/ directory...")
     try:
-        train_df = pd.read_csv(os.path.join('test', 'train.csv'))
-        val_df = pd.read_csv(os.path.join('test', 'val.csv'))
-        test_df = pd.read_csv(os.path.join('test', 'test.csv'))
+        base_path = os.path.dirname(__file__)
+        train_df = pd.read_csv(os.path.join(base_path, 'test', 'train.csv'))
+        val_df = pd.read_csv(os.path.join(base_path, 'test', 'val.csv'))
+        test_df = pd.read_csv(os.path.join(base_path, 'test', 'test.csv'))
     except FileNotFoundError:
-        print("Error: Could not find train/val/test CSV files in 'test' directory.")
+        print(f"Error: Could not find train/val/test CSV files in '{os.path.join(os.path.dirname(__file__), 'test')}' directory.")
         return
 
     train_df = process_dataframe(train_df)

@@ -35,25 +35,53 @@ def vectorize_dataset(df, vocab_index, n=6):
     return np.array(X)
 
 class SVM:
-    def __init__(self, lr=0.001, C=5.0, epochs=2000):
+    def __init__(self, lr=0.01, C=5.0, epochs=500, batch_size=256, early_stopping_tol=1e-4):
         self.lr = lr
+        self.initial_lr = lr
         self.C = C
         self.epochs = epochs
+        self.batch_size = batch_size
+        self.early_stopping_tol = early_stopping_tol
 
     def fit(self, X, y):
         n_samples, n_features = X.shape
         y = np.where(y == 1, 1, -1)
         self.w = np.zeros(n_features)
         self.b = 0
-        for _ in range(self.epochs):
-            scores = X.dot(self.w) + self.b
-            margin = y * scores
-            mis = margin < 1
-            dw = self.w - self.C * np.dot(X[mis].T, y[mis])
-            db = -self.C * np.sum(y[mis])
-            self.w -= self.lr * dw
-            self.b -= self.lr * db
-            self.lr *= 0.9995
+        
+        prev_w = np.copy(self.w)
+        
+        for epoch in range(self.epochs):
+            # Mini-batch training
+            indices = np.random.permutation(n_samples)
+            
+            for start_idx in range(0, n_samples, self.batch_size):
+                end_idx = min(start_idx + self.batch_size, n_samples)
+                batch_indices = indices[start_idx:end_idx]
+                
+                X_batch = X[batch_indices]
+                y_batch = y[batch_indices]
+                
+                scores = X_batch.dot(self.w) + self.b
+                margin = y_batch * scores
+                mis = margin < 1
+                
+                dw = self.w - self.C * np.dot(X_batch[mis].T, y_batch[mis])
+                db = -self.C * np.sum(y_batch[mis])
+                
+                self.w -= self.lr * dw
+                self.b -= self.lr * db
+            
+            # Decay learning rate
+            self.lr *= 0.995
+            
+            # Early stopping check every 10 epochs
+            if epoch % 10 == 0 and epoch > 0:
+                w_change = np.linalg.norm(self.w - prev_w)
+                if w_change < self.early_stopping_tol:
+                    print(f"  Early stopping at epoch {epoch}")
+                    break
+                prev_w = np.copy(self.w)
 
     def decision_function(self, X):
         return X.dot(self.w) + self.b
@@ -62,20 +90,22 @@ class SVM:
         return np.sign(self.decision_function(X))
 
 class MultiClassSVM:
-    def __init__(self, lr=0.001, C=5.0, epochs=2000):
+    def __init__(self, lr=0.01, C=5.0, epochs=500, batch_size=256):
         self.lr = lr
         self.C = C
         self.epochs = epochs
+        self.batch_size = batch_size
 
     def fit(self, X, y):
         self.classes = np.unique(y)
         self.models = {}
         for c in self.classes:
-            print(f"Class: {c}")
+            print(f"Class: {c}", end=" ")
             y_binary = np.where(y == c, 1, -1)
-            svm = SVM(lr=self.lr, C=self.C, epochs=self.epochs)
+            svm = SVM(lr=self.lr, C=self.C, epochs=self.epochs, batch_size=self.batch_size)
             svm.fit(X, y_binary)
             self.models[c] = svm
+            print("✓")
 
     def predict(self, X):
         scores = np.vstack([self.models[c].decision_function(X) for c in self.classes]).T
@@ -104,8 +134,8 @@ X_test = vectorize_dataset(test, vocab_index, n=6)
 y_test = test["label"].values
 
 # --- Graph Generation ---
-print("Generating learning curves...")
-train_sizes = np.linspace(0.1, 1.0, 5)  # 5 points
+print("Generating learning curves (reduced for speed)...")
+train_sizes = np.linspace(0.2, 1.0, 3)  # Reduced to 3 points for speed
 train_losses = []
 val_losses = []
 train_accs = []
@@ -117,8 +147,8 @@ for frac in train_sizes:
     X_sub = X_train[:limit]
     y_sub = y_train[:limit]
     
-    # Fit
-    svm_model = MultiClassSVM(lr=0.001, C=5.0, epochs=2000)
+    # Fit (reduced epochs for learning curve)
+    svm_model = MultiClassSVM(lr=0.01, C=5.0, epochs=200, batch_size=256)
     svm_model.fit(X_sub, y_sub)
     
     # Predict
@@ -177,7 +207,7 @@ if os.path.exists(model_path):
     print("Model loaded. Skipping training.")
 else:
     print("No existing model found. Training new model...")
-    model = MultiClassSVM(lr=0.001, C=5.0, epochs=2000)
+    model = MultiClassSVM(lr=0.01, C=5.0, epochs=500, batch_size=256)
     model.fit(X_train, y_train)
     
     # Save the model
