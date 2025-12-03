@@ -99,15 +99,20 @@ class BiLSTM:
         self.b_out = np.zeros((1, num_classes))
 
     # ---------- SAVE / LOAD ----------
-    def save(self, path="models/bilstm_weights.npz"):
-        os.makedirs("models", exist_ok=True)
+    def save(self, path=None):
+        # Save weights to the same directory as bi_lstm.py
+        if path is None:
+            path = os.path.join(os.path.dirname(__file__), "bilstm_weights.npz")
         np.savez(path,
                  Emb=self.Emb,
                  Wf=self.fwd.W, bf=self.fwd.b,
                  Wb=self.bwd.W, bb=self.bwd.b,
                  Wout=self.W_out, bout=self.b_out)
 
-    def load(self, path="models/bilstm_weights.npz"):
+    def load(self, path=None):
+        # Load weights from the same directory as bi_lstm.py
+        if path is None:
+            path = os.path.join(os.path.dirname(__file__), "bilstm_weights.npz")
         if not os.path.exists(path):
             print("No saved weights found. Starting fresh.")
             return
@@ -256,7 +261,7 @@ def train():
 
     lr = 0.001
     batch = 16
-    epochs = 5
+    epochs = 200
 
     N = Xtr.shape[1]
 

@@ -5,7 +5,7 @@ import matplotlib.pyplot as plt
 import pickle
 import sys
 sys.path.append(os.path.join(os.path.dirname(__file__), 'test'))
-import test_metrics as tm
+from test import test_metrics as tm
 from sklearn.metrics import accuracy_score, log_loss
 
 def generate_ngrams(sequence, n=6):
