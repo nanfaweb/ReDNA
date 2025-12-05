@@ -3,6 +3,7 @@ import pandas as pd
 import ast
 import os
 import math
+import matplotlib.pyplot as plt
 from test import test_metrics as tm
 
 np.random.seed(1)
@@ -261,15 +262,20 @@ def train():
 
     lr = 0.001
     batch = 16
-    epochs = 200
+    epochs = 10
 
     N = Xtr.shape[1]
+
+    train_losses = []
+    val_losses = []
+    train_accs = []
+    val_accs = []
 
     for ep in range(epochs):
         perm = np.random.permutation(N)
 
-        losses = []
-        accs = []
+        epoch_losses = []
+        epoch_accs = []
 
         for i in range(0, N, batch):
             idx = perm[i:i+batch]
@@ -278,17 +284,69 @@ def train():
 
             probs, cache = model.forward(Xb)
             loss = cross_entropy(probs, Yb)
-            losses.append(loss)
+            epoch_losses.append(loss)
 
             preds = np.argmax(probs, axis=1)
-            accs.append(accuracy(preds, Yb))
+            epoch_accs.append(accuracy(preds, Yb))
 
             grads = model.backward(probs, Yb, cache, Xb)
             model.step(grads, lr)
 
-        print(f"Epoch {ep+1}: Loss={np.mean(losses):.4f}, Acc={np.mean(accs):.4f}")
+        # Record training metrics for this epoch
+        train_loss = np.mean(epoch_losses)
+        train_acc = np.mean(epoch_accs)
+        train_losses.append(train_loss)
+        train_accs.append(train_acc)
+
+        # Validation
+        val_epoch_losses = []
+        val_epoch_accs = []
+        
+        val_N = Xval.shape[1]
+        for i in range(0, val_N, batch):
+             Xvb = Xval[:, i:i+batch]
+             Yvb = Yval[i:i+batch]
+             v_probs, _ = model.forward(Xvb)
+             v_loss = cross_entropy(v_probs, Yvb)
+             val_epoch_losses.append(v_loss)
+             
+             v_preds = np.argmax(v_probs, axis=1)
+             val_epoch_accs.append(accuracy(v_preds, Yvb))
+        
+        val_loss = np.mean(val_epoch_losses)
+        val_acc = np.mean(val_epoch_accs)
+        val_losses.append(val_loss)
+        val_accs.append(val_acc)
+
+        print(f"Epoch {ep+1}: Train Loss={train_loss:.4f}, Train Acc={train_acc:.4f} | Val Loss={val_loss:.4f}, Val Acc={val_acc:.4f}")
 
     model.save()
+
+    # -----------------------------------------
+    # Plotting
+    # -----------------------------------------
+    plt.figure(figsize=(12, 5))
+    
+    # Loss Plot
+    plt.subplot(1, 2, 1)
+    plt.plot(train_losses, label='Train Loss', marker='o')
+    plt.plot(val_losses, label='Val Loss', marker='o')
+    plt.xlabel('Epochs')
+    plt.ylabel('Loss')
+    plt.legend()
+    plt.title('Training and Validation Loss')
+    
+    # Accuracy Plot
+    plt.subplot(1, 2, 2)
+    plt.plot(train_accs, label='Train Acc', marker='o')
+    plt.plot(val_accs, label='Val Acc', marker='o')
+    plt.xlabel('Epochs')
+    plt.ylabel('Accuracy')
+    plt.legend()
+    plt.title('Training and Validation Accuracy')
+    
+    plt.savefig("bi_lstm_graph.png")
+    print("Plots saved to bi_lstm_graph.png")
 
 if __name__ == "__main__":
     train()
