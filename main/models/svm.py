@@ -4,7 +4,7 @@ import os
 import matplotlib.pyplot as plt
 import pickle
 import sys
-sys.path.append(os.path.join(os.path.dirname(__file__), 'test'))
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 from test import test_metrics as tm
 from sklearn.metrics import accuracy_score, log_loss
 
@@ -193,12 +193,13 @@ plt.ylabel('Accuracy')
 plt.title('Learning Curve - Accuracy')
 plt.legend()
 
-plt.savefig('svm_training_results.png')
-print("Graphs saved to svm_training_results.png")
+graph_path = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "graphs", "svm_training_results.png"))
+plt.savefig(graph_path)
+print(f"Graphs saved to {graph_path}")
 
 # Final model training
 print("\nTraining final model on full training set...")
-model_path = 'svm_model.pkl'
+model_path = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "weights", "svm_model.pkl"))
 
 if os.path.exists(model_path):
     print(f"Loading existing model from {model_path}...")

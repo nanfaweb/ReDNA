@@ -11,6 +11,7 @@ This project uses a virtual environment located at `.venv` by default. To instal
 
 # install project dependencies
 pip install -r requirements.txt
-```
 
-If you're running the notebook directly, there's a small helper cell at the top of `dataset_creation.ipynb` that will auto-install `pandas` and `biopython` in the running kernel.
+
+# Run models from main; example: python models/bi_lstm.py
+```

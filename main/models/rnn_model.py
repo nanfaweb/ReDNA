@@ -11,20 +11,20 @@ import sys
 import numpy as np
 
 # Add test directory to path for importing test_metrics
-sys.path.append(os.path.join(os.path.dirname(__file__), 'test'))
-import test_metrics as tm
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+from test import test_metrics as tm
 
 # --- Configuration ---
 BATCH_SIZE = 64
 LEARNING_RATE = 0.001
-EPOCHS = 100
+EPOCHS = 10
 SEQ_LENGTH = 300
 EMBEDDING_DIM = 16
 HIDDEN_SIZE = 64
 NUM_CLASSES = 4
-# DATASET_PATH = 'dataset.csv' # Removed
-MODEL_SAVE_PATH = os.path.join(os.path.dirname(__file__), 'rnn_weights.pth')
-PLOT_SAVE_PATH = os.path.join(os.path.dirname(__file__), 'rnn_graph.png')
+
+MODEL_SAVE_PATH = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "weights", "rnn_weights.pth"))
+PLOT_SAVE_PATH = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "graphs", "rnn_graph.png"))
 
 # Check for GPU
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')

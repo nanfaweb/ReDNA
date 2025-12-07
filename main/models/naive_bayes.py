@@ -2,8 +2,8 @@ import pandas as pd
 import numpy as np
 import sys
 import os
-sys.path.append(os.path.join(os.path.dirname(__file__), 'test'))
-import test_metrics as tm
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+from test import test_metrics as tm
 import matplotlib.pyplot as plt
 from sklearn.metrics import accuracy_score, log_loss
 import pickle
@@ -162,11 +162,13 @@ plt.ylabel('Accuracy')
 plt.title('Learning Curve - Accuracy')
 plt.legend()
 
-plt.savefig('naive_bayes_training_results.png')
-print("Graphs saved to naive_bayes_training_results.png")
+# --- Graph Generation ---
+graph_path = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "graphs", "naive_bayes_training_results.png"))
+plt.savefig(graph_path)
+print(f"Graphs saved to {graph_path}")
 
 # Fit model (using your vectorized X_train/X_test)
-model_path = 'naive_bayes_model.pkl'
+model_path = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "weights", "naive_bayes_model.pkl"))
 
 if os.path.exists(model_path):
     print(f"Loading existing model from {model_path}...")

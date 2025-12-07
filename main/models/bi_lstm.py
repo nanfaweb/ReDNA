@@ -1,9 +1,10 @@
 import numpy as np
 import pandas as pd
 import ast
-import os
+import sys, os
 import math
 import matplotlib.pyplot as plt
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 from test import test_metrics as tm
 
 np.random.seed(1)
@@ -101,9 +102,10 @@ class BiLSTM:
 
     # ---------- SAVE / LOAD ----------
     def save(self, path=None):
-        # Save weights to the same directory as bi_lstm.py
+        # Save weights to main/weights directory
         if path is None:
-            path = os.path.join(os.path.dirname(__file__), "bilstm_weights.npz")
+            path = os.path.join(os.path.dirname(__file__), "..", "weights", "bilstm_weights.npz")
+            path = os.path.abspath(path)
         np.savez(path,
                  Emb=self.Emb,
                  Wf=self.fwd.W, bf=self.fwd.b,
@@ -111,9 +113,10 @@ class BiLSTM:
                  Wout=self.W_out, bout=self.b_out)
 
     def load(self, path=None):
-        # Load weights from the same directory as bi_lstm.py
+        # Load weights from main/weights directory
         if path is None:
-            path = os.path.join(os.path.dirname(__file__), "bilstm_weights.npz")
+            path = os.path.join(os.path.dirname(__file__), "..", "weights", "bilstm_weights.npz")
+            path = os.path.abspath(path)
         if not os.path.exists(path):
             print("No saved weights found. Starting fresh.")
             return
@@ -262,7 +265,7 @@ def train():
 
     lr = 0.001
     batch = 16
-    epochs = 30
+    epochs = 1
 
     N = Xtr.shape[1]
 
@@ -345,8 +348,8 @@ def train():
     plt.legend()
     plt.title('Training and Validation Accuracy')
     
-    plt.savefig("bi_lstm_graph.png")
-    print("Plots saved to bi_lstm_graph.png")
+    plt.savefig(os.path.join(os.path.dirname(__file__), "..", "graphs", "bi_lstm_graph.png"))
+    print("Plots saved to graphs/bi_lstm_graph.png")
 
 if __name__ == "__main__":
     train()
