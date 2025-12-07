@@ -262,7 +262,7 @@ def train():
 
     lr = 0.001
     batch = 16
-    epochs = 10
+    epochs = 30
 
     N = Xtr.shape[1]
 
