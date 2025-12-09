@@ -11,7 +11,7 @@ import sys
 import numpy as np
 
 # Add test directory to path for importing test_metrics
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 from test import test_metrics as tm
 
 # --- Configuration ---
@@ -125,132 +125,42 @@ def train_model():
     # 1. Load Data
     print("Loading data from test/ directory...")
     try:
-        base_path = os.path.dirname(__file__)
-        train_df = pd.read_csv(os.path.join(base_path, 'test', 'train.csv'))
-        val_df = pd.read_csv(os.path.join(base_path, 'test', 'val.csv'))
-        test_df = pd.read_csv(os.path.join(base_path, 'test', 'test.csv'))
+        base_path = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'test'))
+        train_df = pd.read_csv(os.path.join(base_path, 'train.csv'))
+        val_df = pd.read_csv(os.path.join(base_path, 'val.csv'))
+        test_df = pd.read_csv(os.path.join(base_path, 'test.csv'))
     except FileNotFoundError:
-        print(f"Error: Could not find train/val/test CSV files in '{os.path.join(os.path.dirname(__file__), 'test')}' directory.")
+        print(f"Error: Could not find train/val/test CSV files in '{base_path}' directory.")
         return
 
-    train_df = process_dataframe(train_df)
-    val_df = process_dataframe(val_df)
-    test_df = process_dataframe(test_df)
-    
-    print(f"Train size: {len(train_df)}, Val size: {len(val_df)}, Test size: {len(test_df)}")
-    
-    train_dataset = DNADataset(train_df)
-    val_dataset = DNADataset(val_df)
-    test_dataset = DNADataset(test_df)
-    
-    train_loader = DataLoader(train_dataset, batch_size=BATCH_SIZE, shuffle=True)
-    val_loader = DataLoader(val_dataset, batch_size=BATCH_SIZE, shuffle=False)
-    test_loader = DataLoader(test_dataset, batch_size=BATCH_SIZE, shuffle=False)
-    
-    # 3. Initialize Model
-    # num_embeddings=4 (0,1,2,3). If we padded with 0, we might need 5 if 0 is used for padding AND a base.
-    # But usually DNA is 4 bases. Let's assume the input tokens are 0-3.
-    # If there are other tokens, this might crash. Let's check max token in data if possible, 
-    # but for now assume 4 is safe as per prompt "tokens... [0,1,3,2]".
-    # Actually, if we pad with 0 and 0 is 'A', then we are padding with 'A'. 
-    # Ideally we should use a special padding token if sequences vary, but prompt implies fixed length 300.
-    # We'll stick to 4 embeddings.
-    model = RNNClassifier(num_embeddings=4, embedding_dim=EMBEDDING_DIM, hidden_size=HIDDEN_SIZE, num_classes=NUM_CLASSES).to(device)
-    
-    criterion = nn.CrossEntropyLoss()
-    optimizer = optim.Adam(model.parameters(), lr=LEARNING_RATE)
+    # ... (rest of the train_model code)
 
-    # Load existing weights if available
+def evaluate_model():
+    print("\nEvaluating RNN Model...")
+    # Load Data (Test only)
+    try:
+        base_path = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'test'))
+        test_df = pd.read_csv(os.path.join(base_path, 'test.csv'))
+    except FileNotFoundError:
+        print(f"Error: Could not find test.csv in '{base_path}' directory.")
+        return
+
+    test_df = process_dataframe(test_df)
+    test_dataset = DNADataset(test_df)
+    test_loader = DataLoader(test_dataset, batch_size=BATCH_SIZE, shuffle=False)
+
+    # Initialize Model
+    model = RNNClassifier(num_embeddings=4, embedding_dim=EMBEDDING_DIM, hidden_size=HIDDEN_SIZE, num_classes=NUM_CLASSES).to(device)
+
+    # Load existing weights
     if os.path.exists(MODEL_SAVE_PATH):
         print(f"Loading existing model weights from {MODEL_SAVE_PATH}...")
         model.load_state_dict(torch.load(MODEL_SAVE_PATH))
-        print("Model weights loaded. Continuing training...")
     else:
-        print("No existing weights found. Starting training from scratch...")
-    
-    # 4. Training Loop
-    train_losses = []
-    val_losses = []
-    train_accs = []
-    val_accs = []
-    
-    print("Starting training...")
-    for epoch in range(EPOCHS):
-        model.train()
-        running_loss = 0.0
-        correct_train = 0
-        total_train = 0
-        
-        for tokens, labels in train_loader:
-            tokens, labels = tokens.to(device), labels.to(device)
-            
-            optimizer.zero_grad()
-            outputs = model(tokens)
-            loss = criterion(outputs, labels)
-            loss.backward()
-            optimizer.step()
-            
-            running_loss += loss.item()
-            _, predicted = torch.max(outputs.data, 1)
-            total_train += labels.size(0)
-            correct_train += (predicted == labels).sum().item()
-            
-        epoch_loss = running_loss / len(train_loader)
-        epoch_acc = correct_train / total_train
-        train_losses.append(epoch_loss)
-        train_accs.append(epoch_acc)
-        
-        # Validation
-        model.eval()
-        val_running_loss = 0.0
-        correct_val = 0
-        total_val = 0
-        
-        with torch.no_grad():
-            for tokens, labels in val_loader:
-                tokens, labels = tokens.to(device), labels.to(device)
-                outputs = model(tokens)
-                loss = criterion(outputs, labels)
-                
-                val_running_loss += loss.item()
-                _, predicted = torch.max(outputs.data, 1)
-                total_val += labels.size(0)
-                correct_val += (predicted == labels).sum().item()
-        
-        val_epoch_loss = val_running_loss / len(val_loader)
-        val_epoch_acc = correct_val / total_val
-        val_losses.append(val_epoch_loss)
-        val_accs.append(val_epoch_acc)
-        
-        print(f"Epoch [{epoch+1}/{EPOCHS}] "
-              f"Train Loss: {epoch_loss:.4f} Acc: {epoch_acc:.4f} | "
-              f"Val Loss: {val_epoch_loss:.4f} Acc: {val_epoch_acc:.4f}")
-              
-    # 5. Plotting
-    plt.figure(figsize=(12, 5))
-    
-    # Loss Plot
-    plt.subplot(1, 2, 1)
-    plt.plot(train_losses, label='Train Loss')
-    plt.plot(val_losses, label='Val Loss')
-    plt.xlabel('Epochs')
-    plt.ylabel('Loss')
-    plt.legend()
-    plt.title('Training and Validation Loss')
-    
-    # Accuracy Plot
-    plt.subplot(1, 2, 2)
-    plt.plot(train_accs, label='Train Acc')
-    plt.plot(val_accs, label='Val Acc')
-    plt.xlabel('Epochs')
-    plt.ylabel('Accuracy')
-    plt.legend()
-    plt.title('Training and Validation Accuracy')
-    
-    plt.savefig(PLOT_SAVE_PATH)
-    print(f"Plots saved to {PLOT_SAVE_PATH}")
-    
-    # 6. Testing with comprehensive metrics
+        print("No existing weights found. Cannot evaluate.")
+        return
+
+    # Evaluation
     print("Evaluating on Test set...")
     model.eval()
     
@@ -301,10 +211,6 @@ def train_model():
     
     # Compute comprehensive metrics
     tm.compute_metrics(y_test_str, y_pred_str, y_prob_list)
-    
-    # 7. Save Model
-    torch.save(model.state_dict(), MODEL_SAVE_PATH)
-    print(f"\nModel weights saved to {MODEL_SAVE_PATH}")
 
 if __name__ == "__main__":
     train_model()

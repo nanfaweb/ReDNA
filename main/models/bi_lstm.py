@@ -4,7 +4,7 @@ import ast
 import sys, os
 import math
 import matplotlib.pyplot as plt
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 from test import test_metrics as tm
 
 np.random.seed(1)
@@ -257,8 +257,12 @@ def load_data(file):
 # Training
 # -----------------------------------------
 def train():
-    Xtr, Ytr = load_data("test/train.csv")
-    Xval, Yval = load_data("test/val.csv")
+    base_path = os.path.dirname(__file__)
+    train_path = os.path.join(base_path, "..", "test", "train.csv")
+    val_path = os.path.join(base_path, "..", "test", "val.csv")
+    
+    Xtr, Ytr = load_data(train_path)
+    Xval, Yval = load_data(val_path)
 
     model = BiLSTM()
     model.load()
@@ -351,9 +355,18 @@ def train():
     plt.savefig(os.path.join(os.path.dirname(__file__), "..", "graphs", "bi_lstm_graph.png"))
     print("Plots saved to graphs/bi_lstm_graph.png")
 
-if __name__ == "__main__":
-    train()
-    X_test, Y_test = load_data("test/test.csv")  # adjust path if needed
+def evaluate_model():
+    print("\nEvaluating Bi-LSTM Model...")
+    # Load test data
+    base_path = os.path.dirname(__file__)
+    # Construct absolute path to test.csv
+    test_path = os.path.abspath(os.path.join(base_path, "..", "test", "test.csv"))
+    
+    if not os.path.exists(test_path):
+        # Fallback for relative execution
+        test_path = "test/test.csv"
+
+    X_test, Y_test = load_data(test_path)
 
     model = BiLSTM()
     model.load()  # load trained weights
@@ -373,5 +386,8 @@ if __name__ == "__main__":
     # -----------------------------
     # Compute and Print Metrics
     # -----------------------------
-    print("\n================ Test Metrics ================\n")
     tm.compute_metrics(Y_test, Y_pred, prob_list)
+
+if __name__ == "__main__":
+    train()
+    evaluate_model()

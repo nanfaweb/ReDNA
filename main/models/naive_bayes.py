@@ -2,7 +2,7 @@ import pandas as pd
 import numpy as np
 import sys
 import os
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 from test import test_metrics as tm
 import matplotlib.pyplot as plt
 from sklearn.metrics import accuracy_score, log_loss
@@ -68,128 +68,182 @@ class NaiveBayes:
 	
 # Load data
 base_path = os.path.dirname(__file__)
-train = pd.read_csv(os.path.join(base_path, 'test', 'train.csv'))
-val   = pd.read_csv(os.path.join(base_path, 'test', 'val.csv'))
-test  = pd.read_csv(os.path.join(base_path, 'test', 'test.csv'))
 
-n = 6
-train['ngrams'] = train['sequence'].apply(lambda x: generate_ngrams(x, n))
-val['ngrams']   = val['sequence'].apply(lambda x: generate_ngrams(x, n))
-test['ngrams']  = test['sequence'].apply(lambda x: generate_ngrams(x, n))
+def load_data():
+    train = pd.read_csv(os.path.join(base_path, '..', 'test', 'train.csv'))
+    val   = pd.read_csv(os.path.join(base_path, '..', 'test', 'val.csv'))
+    test  = pd.read_csv(os.path.join(base_path, '..', 'test', 'test.csv'))
+    return train, val, test
 
-# Build vocabulary
-vocab = set()
-for seq in train['ngrams']:
-	vocab.update(seq)
-vocab = sorted(list(vocab))
-vocab_index = {k:i for i,k in enumerate(vocab)}
+def main():
+    train, val, test = load_data()
 
-X_train = np.array([vectorize(seq, vocab_index) for seq in train['ngrams']])
-X_val   = np.array([vectorize(seq, vocab_index) for seq in val['ngrams']])
-X_test  = np.array([vectorize(seq, vocab_index) for seq in test['ngrams']])
+    n = 6
+    train['ngrams'] = train['sequence'].apply(lambda x: generate_ngrams(x, n))
+    val['ngrams']   = val['sequence'].apply(lambda x: generate_ngrams(x, n))
+    test['ngrams']  = test['sequence'].apply(lambda x: generate_ngrams(x, n))
 
-y_train = train['label'].values
-y_val   = val['label'].values
-y_test  = test['label'].values
+    # Build vocabulary
+    vocab = set()
+    for seq in train['ngrams']:
+        vocab.update(seq)
+    vocab = sorted(list(vocab))
+    vocab_index = {k:i for i,k in enumerate(vocab)}
 
-# --- Graph Generation ---
-print("Generating learning curves...")
-train_sizes = np.linspace(0.1, 1.0, 5) # 5 points
-train_losses = []
-val_losses = []
-train_accs = []
-val_accs = []
+    X_train = np.array([vectorize(seq, vocab_index) for seq in train['ngrams']])
+    X_val   = np.array([vectorize(seq, vocab_index) for seq in val['ngrams']])
+    X_test  = np.array([vectorize(seq, vocab_index) for seq in test['ngrams']])
 
-def prob_list_to_array(plist, classes):
-    arr = np.zeros((len(plist), len(classes)))
-    for i, p in enumerate(plist):
-        for j, c in enumerate(classes):
-            arr[i, j] = p.get(c, 0.0)
-    return arr
+    y_train = train['label'].values
+    y_val   = val['label'].values
+    y_test  = test['label'].values
 
-for frac in train_sizes:
-    # Subset
-    limit = int(len(X_train) * frac)
-    X_sub = X_train[:limit]
-    y_sub = y_train[:limit]
-    
-    # Fit
-    nb = NaiveBayes(alpha=1.0)
-    nb.fit(X_sub, y_sub)
-    
-    # Predict
-    y_train_pred_sub = nb.predict(X_sub)
-    y_train_prob_list = nb.predict_prob(X_sub)
-    
-    y_val_pred_sub = nb.predict(X_val)
-    y_val_prob_list = nb.predict_prob(X_val)
-    
-    y_train_prob_arr = prob_list_to_array(y_train_prob_list, nb.classes)
-    y_val_prob_arr = prob_list_to_array(y_val_prob_list, nb.classes)
-    
-    # Metrics
-    train_acc = accuracy_score(y_sub, y_train_pred_sub)
-    val_acc = accuracy_score(y_val, y_val_pred_sub)
-    
-    train_loss = log_loss(y_sub, y_train_prob_arr, labels=nb.classes)
-    val_loss = log_loss(y_val, y_val_prob_arr, labels=nb.classes)
-    
-    train_accs.append(train_acc)
-    val_accs.append(val_acc)
-    train_losses.append(train_loss)
-    val_losses.append(val_loss)
-    
-    print(f"Frac {frac:.1f}: Train Acc {train_acc:.3f}, Val Acc {val_acc:.3f}")
+    # --- Graph Generation ---
+    print("Generating learning curves...")
+    train_sizes = np.linspace(0.1, 1.0, 5) # 5 points
+    train_losses = []
+    val_losses = []
+    train_accs = []
+    val_accs = []
 
-# Plotting
-plt.figure(figsize=(12, 5))
+    def prob_list_to_array(plist, classes):
+        arr = np.zeros((len(plist), len(classes)))
+        for i, p in enumerate(plist):
+            for j, c in enumerate(classes):
+                arr[i, j] = p.get(c, 0.0)
+        return arr
 
-# Loss
-plt.subplot(1, 2, 1)
-plt.plot(train_sizes, train_losses, 'o-', label='Train Loss')
-plt.plot(train_sizes, val_losses, 'o-', label='Val Loss')
-plt.xlabel('Fraction of Training Data')
-plt.ylabel('Log Loss')
-plt.title('Learning Curve - Loss')
-plt.legend()
+    for frac in train_sizes:
+        # Subset
+        limit = int(len(X_train) * frac)
+        X_sub = X_train[:limit]
+        y_sub = y_train[:limit]
+        
+        # Fit
+        nb = NaiveBayes(alpha=1.0)
+        nb.fit(X_sub, y_sub)
+        
+        # Predict
+        y_train_pred_sub = nb.predict(X_sub)
+        y_train_prob_list = nb.predict_prob(X_sub)
+        
+        y_val_pred_sub = nb.predict(X_val)
+        y_val_prob_list = nb.predict_prob(X_val)
+        
+        y_train_prob_arr = prob_list_to_array(y_train_prob_list, nb.classes)
+        y_val_prob_arr = prob_list_to_array(y_val_prob_list, nb.classes)
+        
+        # Metrics
+        train_acc = accuracy_score(y_sub, y_train_pred_sub)
+        val_acc = accuracy_score(y_val, y_val_pred_sub)
+        
+        train_loss = log_loss(y_sub, y_train_prob_arr, labels=nb.classes)
+        val_loss = log_loss(y_val, y_val_prob_arr, labels=nb.classes)
+        
+        train_accs.append(train_acc)
+        val_accs.append(val_acc)
+        train_losses.append(train_loss)
+        val_losses.append(val_loss)
+        
+        print(f"Frac {frac:.1f}: Train Acc {train_acc:.3f}, Val Acc {val_acc:.3f}")
 
-# Accuracy
-plt.subplot(1, 2, 2)
-plt.plot(train_sizes, train_accs, 'o-', label='Train Accuracy')
-plt.plot(train_sizes, val_accs, 'o-', label='Val Accuracy')
-plt.xlabel('Fraction of Training Data')
-plt.ylabel('Accuracy')
-plt.title('Learning Curve - Accuracy')
-plt.legend()
+    # Plotting
+    plt.figure(figsize=(12, 5))
 
-# --- Graph Generation ---
-graph_path = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "graphs", "naive_bayes_training_results.png"))
-plt.savefig(graph_path)
-print(f"Graphs saved to {graph_path}")
+    # Loss
+    plt.subplot(1, 2, 1)
+    plt.plot(train_sizes, train_losses, 'o-', label='Train Loss')
+    plt.plot(train_sizes, val_losses, 'o-', label='Val Loss')
+    plt.xlabel('Fraction of Training Data')
+    plt.ylabel('Log Loss')
+    plt.title('Learning Curve - Loss')
+    plt.legend()
 
-# Fit model (using your vectorized X_train/X_test)
-model_path = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "weights", "naive_bayes_model.pkl"))
+    # Accuracy
+    plt.subplot(1, 2, 2)
+    plt.plot(train_sizes, train_accs, 'o-', label='Train Accuracy')
+    plt.plot(train_sizes, val_accs, 'o-', label='Val Accuracy')
+    plt.xlabel('Fraction of Training Data')
+    plt.ylabel('Accuracy')
+    plt.title('Learning Curve - Accuracy')
+    plt.legend()
 
-if os.path.exists(model_path):
-    print(f"Loading existing model from {model_path}...")
-    with open(model_path, 'rb') as f:
-        model = pickle.load(f)
-    print("Model loaded. Skipping training.")
-else:
-    print("No existing model found. Training new model...")
-    model = NaiveBayes(alpha=1.0)
-    model.fit(X_train, y_train)
-    
-    # Save the model
-    with open(model_path, 'wb') as f:
-        pickle.dump(model, f)
-    print(f"Model saved to {model_path}")
+    # --- Graph Generation ---
+    graph_path = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "graphs", "naive_bayes_training_results.png"))
+    plt.savefig(graph_path)
+    print(f"Graphs saved to {graph_path}")
 
-# Predictions
-y_val_pred = model.predict(X_val)
-y_test_pred = model.predict(X_test)
-y_test_proba = model.predict_prob(X_test)
+    # Fit model (using your vectorized X_train/X_test)
+    model_path = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "weights", "naive_bayes_model.pkl"))
 
-# Compute metrics
-tm.compute_metrics(y_test, y_test_pred, y_test_proba);
+    if os.path.exists(model_path):
+        print(f"Loading existing model from {model_path}...")
+        with open(model_path, 'rb') as f:
+            model = pickle.load(f)
+        print("Model loaded. Skipping training.")
+    else:
+        print("No existing model found. Training new model...")
+        model = NaiveBayes(alpha=1.0)
+        model.fit(X_train, y_train)
+        
+        # Save the model
+        with open(model_path, 'wb') as f:
+            pickle.dump(model, f)
+        print(f"Model saved to {model_path}")
 
+    # Predictions
+    y_val_pred = model.predict(X_val)
+    y_test_pred = model.predict(X_test)
+    y_test_proba = model.predict_prob(X_test)
+
+    # Compute metrics
+    tm.compute_metrics(y_test, y_test_pred, y_test_proba);
+
+def evaluate_model():
+    print("\nEvaluating Naive Bayes Model...")
+    model_path = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "weights", "nb_model.pkl"))
+
+    if not os.path.exists(model_path):
+        print(f"Model file not found at {model_path}. Please train the model first.")
+        return
+
+    # Load data
+    train = pd.read_csv(os.path.join(os.path.dirname(__file__), '..', 'test', 'train.csv')) # Needed for vocab
+    test  = pd.read_csv(os.path.join(os.path.dirname(__file__), '..', 'test', 'test.csv'))
+
+    n = 6
+    train['ngrams'] = train['sequence'].apply(lambda x: generate_ngrams(x, n))
+    test['ngrams']  = test['sequence'].apply(lambda x: generate_ngrams(x, n))
+
+    # Build vocabulary (needed for vectorization)
+    vocab = set()
+    for seq in train['ngrams']:
+        vocab.update(seq)
+    vocab = sorted(list(vocab))
+    vocab_index = {k:i for i,k in enumerate(vocab)}
+
+    X_test  = np.array([vectorize(seq, vocab_index) for seq in test['ngrams']])
+    y_test  = test['label'].values
+
+    print(f"Loading model from {model_path}...")
+    import types
+    import pickle
+    import sys
+    # Patch __main__ to include NaiveBayes
+    sys.modules['__main__'].NaiveBayes = NaiveBayes
+    try:
+        with open(model_path, 'rb') as f:
+            model = pickle.load(f)
+    except Exception as e:
+        print(f"Error loading model: {e}")
+        return
+
+    # Predictions
+    y_test_pred = model.predict(X_test)
+    y_test_proba = model.predict_prob(X_test)
+
+    # Compute metrics
+    tm.compute_metrics(y_test, y_test_pred, y_test_proba);
+
+if __name__ == "__main__":
+    main()

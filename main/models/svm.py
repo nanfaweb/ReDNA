@@ -4,7 +4,7 @@ import os
 import matplotlib.pyplot as plt
 import pickle
 import sys
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 from test import test_metrics as tm
 from sklearn.metrics import accuracy_score, log_loss
 
@@ -118,120 +118,180 @@ class MultiClassSVM:
 
 # Load data using absolute paths
 base_path = os.path.dirname(__file__)
-train = pd.read_csv(os.path.join(base_path, "test", "train.csv"))
-val = pd.read_csv(os.path.join(base_path, "test", "val.csv"))
-test = pd.read_csv(os.path.join(base_path, "test", "test.csv"))
 
-vocab_index = build_vocab(train["sequence"], n=6)
+def load_data():
+    base_path = os.path.dirname(__file__)
+    train = pd.read_csv(os.path.join(base_path, "..", "test", "train.csv"))
+    val = pd.read_csv(os.path.join(base_path, "..", "test", "val.csv"))
+    test = pd.read_csv(os.path.join(base_path, "..", "test", "test.csv"))
+    return train, val, test
 
-X_train = vectorize_dataset(train, vocab_index, n=6)
-y_train = train["label"].values
+def main():
+    train, val, test = load_data()
 
-X_val = vectorize_dataset(val, vocab_index, n=6)
-y_val = val["label"].values
+    vocab_index = build_vocab(train["sequence"], n=6)
 
-X_test = vectorize_dataset(test, vocab_index, n=6)
-y_test = test["label"].values
+    X_train = vectorize_dataset(train, vocab_index, n=6)
+    y_train = train["label"].values
 
-# --- Graph Generation ---
-print("Generating learning curves (reduced for speed)...")
-train_sizes = np.linspace(0.2, 1.0, 3)  # Reduced to 3 points for speed
-train_losses = []
-val_losses = []
-train_accs = []
-val_accs = []
+    X_val = vectorize_dataset(val, vocab_index, n=6)
+    y_val = val["label"].values
 
-for frac in train_sizes:
-    # Subset
-    limit = int(len(X_train) * frac)
-    X_sub = X_train[:limit]
-    y_sub = y_train[:limit]
+    X_test = vectorize_dataset(test, vocab_index, n=6)
+    y_test = test["label"].values
+
+    # --- Graph Generation ---
+    print("Generating learning curves (reduced for speed)...")
+    train_sizes = np.linspace(0.2, 1.0, 3)  # Reduced to 3 points for speed
+    train_losses = []
+    val_losses = []
+    train_accs = []
+    val_accs = []
+
+    for frac in train_sizes:
+        # Subset
+        limit = int(len(X_train) * frac)
+        X_sub = X_train[:limit]
+        y_sub = y_train[:limit]
+        
+        # Fit (reduced epochs for learning curve)
+        svm_model = MultiClassSVM(lr=0.01, C=5.0, epochs=200, batch_size=256)
+        svm_model.fit(X_sub, y_sub)
+        
+        # Predict
+        y_train_pred_sub = svm_model.predict(X_sub)
+        y_train_prob = svm_model.predict_proba(X_sub)
+        
+        y_val_pred_sub = svm_model.predict(X_val)
+        y_val_prob = svm_model.predict_proba(X_val)
+        
+        # Metrics
+        train_acc = accuracy_score(y_sub, y_train_pred_sub)
+        val_acc = accuracy_score(y_val, y_val_pred_sub)
+        
+        train_loss = log_loss(y_sub, y_train_prob, labels=svm_model.classes)
+        val_loss = log_loss(y_val, y_val_prob, labels=svm_model.classes)
+        
+        train_accs.append(train_acc)
+        val_accs.append(val_acc)
+        train_losses.append(train_loss)
+        val_losses.append(val_loss)
+        
+        print(f"Frac {frac:.1f}: Train Acc {train_acc:.3f}, Val Acc {val_acc:.3f}")
+
+    # Plotting
+    plt.figure(figsize=(12, 5))
+
+    # Loss
+    plt.subplot(1, 2, 1)
+    plt.plot(train_sizes, train_losses, 'o-', label='Train Loss')
+    plt.plot(train_sizes, val_losses, 'o-', label='Val Loss')
+    plt.xlabel('Fraction of Training Data')
+    plt.ylabel('Log Loss')
+    plt.title('Learning Curve - Loss')
+    plt.legend()
+
+    # Accuracy
+    plt.subplot(1, 2, 2)
+    plt.plot(train_sizes, train_accs, 'o-', label='Train Accuracy')
+    plt.plot(train_sizes, val_accs, 'o-', label='Val Accuracy')
+    plt.xlabel('Fraction of Training Data')
+    plt.ylabel('Accuracy')
+    plt.title('Learning Curve - Accuracy')
+    plt.legend()
+
+    graph_path = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "graphs", "svm_training_results.png"))
+    plt.savefig(graph_path)
+    print(f"Graphs saved to {graph_path}")
+
+    # Final model training
+    print("\nTraining final model on full training set...")
+    model_path = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "weights", "svm_model.pkl"))
+
+    if os.path.exists(model_path):
+        print(f"Loading existing model from {model_path}...")
+        with open(model_path, 'rb') as f:
+            model = pickle.load(f)
+        print("Model loaded. Skipping training.")
+    else:
+        print("No existing model found. Training new model...")
+        model = MultiClassSVM(lr=0.01, C=5.0, epochs=500, batch_size=256)
+        model.fit(X_train, y_train)
+        
+        # Save the model
+        with open(model_path, 'wb') as f:
+            pickle.dump(model, f)
+        print(f"Model saved to {model_path}")
+
+    y = y_test
+    y_pred = model.predict(X_test)
+    y_prob = model.predict_proba(X_test)
+
+    accuracy = np.mean(y_pred == y)
+    print(f"\nTest Accuracy: {accuracy}")
+
+    # Convert probabilities to list of dicts for test_metrics
+    y_prob_list = []
+    classes = model.classes
+    for prob_array in y_prob:
+        prob_dict = {
+            classes[i]: float(prob_array[i]) 
+            for i in range(len(prob_array))
+        }
+        y_prob_list.append(prob_dict)
+
+    # Compute comprehensive metrics
+    tm.compute_metrics(y, y_pred, y_prob_list)
+
+def evaluate_model():
+    print("\nEvaluating SVM Model...")
+    model_path = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "weights", "svm_model.pkl"))
     
-    # Fit (reduced epochs for learning curve)
-    svm_model = MultiClassSVM(lr=0.01, C=5.0, epochs=200, batch_size=256)
-    svm_model.fit(X_sub, y_sub)
-    
-    # Predict
-    y_train_pred_sub = svm_model.predict(X_sub)
-    y_train_prob = svm_model.predict_proba(X_sub)
-    
-    y_val_pred_sub = svm_model.predict(X_val)
-    y_val_prob = svm_model.predict_proba(X_val)
-    
-    # Metrics
-    train_acc = accuracy_score(y_sub, y_train_pred_sub)
-    val_acc = accuracy_score(y_val, y_val_pred_sub)
-    
-    train_loss = log_loss(y_sub, y_train_prob, labels=svm_model.classes)
-    val_loss = log_loss(y_val, y_val_prob, labels=svm_model.classes)
-    
-    train_accs.append(train_acc)
-    val_accs.append(val_acc)
-    train_losses.append(train_loss)
-    val_losses.append(val_loss)
-    
-    print(f"Frac {frac:.1f}: Train Acc {train_acc:.3f}, Val Acc {val_acc:.3f}")
+    if not os.path.exists(model_path):
+        print(f"Model file not found at {model_path}. Please train the model first.")
+        return
 
-# Plotting
-plt.figure(figsize=(12, 5))
+    # Load data from main/test
+    main_path = os.path.abspath(os.path.join(base_path, ".."))
+    train = pd.read_csv(os.path.join(main_path, "test", "train.csv")) # Needed for vocab building
+    test = pd.read_csv(os.path.join(main_path, "test", "test.csv"))
 
-# Loss
-plt.subplot(1, 2, 1)
-plt.plot(train_sizes, train_losses, 'o-', label='Train Loss')
-plt.plot(train_sizes, val_losses, 'o-', label='Val Loss')
-plt.xlabel('Fraction of Training Data')
-plt.ylabel('Log Loss')
-plt.title('Learning Curve - Loss')
-plt.legend()
+    # Needs vocab from training data
+    vocab_index = build_vocab(train["sequence"], n=6)
 
-# Accuracy
-plt.subplot(1, 2, 2)
-plt.plot(train_sizes, train_accs, 'o-', label='Train Accuracy')
-plt.plot(train_sizes, val_accs, 'o-', label='Val Accuracy')
-plt.xlabel('Fraction of Training Data')
-plt.ylabel('Accuracy')
-plt.title('Learning Curve - Accuracy')
-plt.legend()
+    X_test = vectorize_dataset(test, vocab_index, n=6)
+    y_test = test["label"].values
 
-graph_path = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "graphs", "svm_training_results.png"))
-plt.savefig(graph_path)
-print(f"Graphs saved to {graph_path}")
+    print(f"Loading model from {model_path}...")
+    import sys
+    sys.modules['__main__'].MultiClassSVM = MultiClassSVM
+    sys.modules['__main__'].SVM = SVM
+    try:
+        with open(model_path, 'rb') as f:
+            model = pickle.load(f)
+    except Exception as e:
+        print(f"Error loading model: {e}")
+        return
 
-# Final model training
-print("\nTraining final model on full training set...")
-model_path = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "weights", "svm_model.pkl"))
+    y = y_test
+    y_pred = model.predict(X_test)
+    y_prob = model.predict_proba(X_test)
 
-if os.path.exists(model_path):
-    print(f"Loading existing model from {model_path}...")
-    with open(model_path, 'rb') as f:
-        model = pickle.load(f)
-    print("Model loaded. Skipping training.")
-else:
-    print("No existing model found. Training new model...")
-    model = MultiClassSVM(lr=0.01, C=5.0, epochs=500, batch_size=256)
-    model.fit(X_train, y_train)
-    
-    # Save the model
-    with open(model_path, 'wb') as f:
-        pickle.dump(model, f)
-    print(f"Model saved to {model_path}")
+    accuracy = np.mean(y_pred == y)
+    print(f"\nTest Accuracy: {accuracy}")
 
-y = y_test
-y_pred = model.predict(X_test)
-y_prob = model.predict_proba(X_test)
+    # Convert probabilities to list of dicts for test_metrics
+    y_prob_list = []
+    classes = model.classes
+    for prob_array in y_prob:
+        prob_dict = {
+            classes[i]: float(prob_array[i]) 
+            for i in range(len(prob_array))
+        }
+        y_prob_list.append(prob_dict)
 
-accuracy = np.mean(y_pred == y)
-print(f"\nTest Accuracy: {accuracy}")
+    # Compute comprehensive metrics
+    tm.compute_metrics(y, y_pred, y_prob_list)
 
-# Convert probabilities to list of dicts for test_metrics
-y_prob_list = []
-classes = model.classes
-for prob_array in y_prob:
-    prob_dict = {
-        classes[i]: float(prob_array[i]) 
-        for i in range(len(prob_array))
-    }
-    y_prob_list.append(prob_dict)
-
-# Compute comprehensive metrics
-tm.compute_metrics(y, y_pred, y_prob_list)
+if __name__ == "__main__":
+    main()
