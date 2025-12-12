@@ -13,11 +13,12 @@ try:
     from main.models import naive_bayes
     from main.models import rnn_model
     from main.models import bi_lstm
+    from main.models import transformer_model
 except ImportError as e:
     print(f"Error importing models: {e}")
     # Try alternative import path if running from inside main
     try:
-        from models import svm, naive_bayes, rnn_model, bi_lstm
+        from models import svm, naive_bayes, rnn_model, bi_lstm, transformer_model
     except ImportError as e2:
         print(f"Critical error: Could not import models. {e2}")
         sys.exit(1)
@@ -33,7 +34,8 @@ def print_menu():
     print("2. Naive Bayes")
     print("3. RNN")
     print("4. Bi-LSTM")
-    print("5. Test All Models")
+    print("5. Transformer")
+    print("6. Test All Models")
     print("0. Exit")
     print("========================================")
 
@@ -47,6 +49,8 @@ def run_evaluation(choice):
     elif choice == '4':
         bi_lstm.evaluate_model()
     elif choice == '5':
+        transformer_model.evaluate_test_set()
+    elif choice == '6':
         print("\n--- Testing SVM ---")
         svm.evaluate_model()
         print("\n--- Testing Naive Bayes ---")
@@ -55,6 +59,8 @@ def run_evaluation(choice):
         rnn_model.evaluate_model()
         print("\n--- Testing Bi-LSTM ---")
         bi_lstm.evaluate_model()
+        print("\n--- Testing Transformer ---")
+        transformer_model.evaluate_test_set()
     else:
         print("Invalid choice.")
 
@@ -67,7 +73,7 @@ def main():
             print("Exiting...")
             break
             
-        if choice in ['1', '2', '3', '4', '5']:
+        if choice in ['1', '2', '3', '4', '5', '6']:
             try:
                 run_evaluation(choice)
             except Exception as e:
