@@ -40,7 +40,7 @@ CONFIG = {
     'seq_len': 300,
     'num_classes': 4,
     'batch_size': 16,
-    'epochs': 5,
+    'epochs': 8,
     'lr': 2e-4,
     'device': 'cuda' if torch.cuda.is_available() else 'cpu'
 }
