@@ -28,6 +28,8 @@ def precision_recall_f1(y_true, y_pred):
 	f1s = []
 	supports = []
 
+	label_map = {0: 'cds', 1: 'intergenic', 2: 'promoter', 3: 'terminator'}
+
 	for c in classes:
 		tp = np.sum((y_pred == c) & (y_true == c))
 		fp = np.sum((y_pred == c) & (y_true != c))
@@ -49,7 +51,8 @@ def precision_recall_f1(y_true, y_pred):
 		f1s.append(f1)
 		supports.append(support)
 
-		lines.append(f"{str(c):<20}{precision:>10.3f}{recall:>10.3f}{f1:>10.3f}{support:>10d}")
+		c_str = label_map.get(c, str(c))
+		lines.append(f"{c_str:<20}{precision:>10.3f}{recall:>10.3f}{f1:>10.3f}{support:>10d}")
 
 	# Averages
 	macro_p = float(np.mean(precisions)) if precisions else 0.0
@@ -105,4 +108,6 @@ def compute_metrics(y, y_pred, y_prob):
 	print("\nPrecision/Recall/F1:\n", precision_recall_f1(y, y_pred))
 	cm, classes = confusion_matrix(y, y_pred)
 	print("\nConfusion Matrix:\n", cm)
-	print("\nClasses:", classes)
+	label_map = {0: 'cds', 1: 'intergenic', 2: 'promoter', 3: 'terminator'}
+	mapped_classes = [label_map.get(c, c) for c in classes]
+	print("\nClasses:", mapped_classes)
